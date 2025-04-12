@@ -1,2 +1,0 @@
-def x(df):
-    pass

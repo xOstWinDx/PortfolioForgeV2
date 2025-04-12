@@ -3,19 +3,20 @@ from typing import Any, Annotated
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from fastapi import APIRouter, Depends
+from starlette.responses import JSONResponse
 
 from auth.src.config import settings
 from auth.src.utils.load_rsa import load_public_key
 
-router = APIRouter(prefix="/")
+router = APIRouter(prefix="/auth")
 
 jwks = Annotated[dict[str, list[dict[str, Any]]], 200]
 
 
 @router.get("/.well-known/jwks.json", status_code=200)
-async def get_jwks(public_key: RSAPublicKey = Depends(load_public_key)) -> jwks:
+async def get_jwks(public_key: RSAPublicKey = Depends(load_public_key)) -> JSONResponse:
     public_numbers = public_key.public_numbers()
-    return {
+    res: jwks = {
         "keys": [
             {
                 "kty": "RSA",
@@ -35,3 +36,7 @@ async def get_jwks(public_key: RSAPublicKey = Depends(load_public_key)) -> jwks:
             }
         ]
     }
+
+    response = JSONResponse(content=res)
+    response.headers["Cache-Control"] = "max-age=86400"  # 24 hours
+    return response

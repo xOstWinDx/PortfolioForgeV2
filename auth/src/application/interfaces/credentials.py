@@ -15,6 +15,12 @@ class ICredentialManager(ABC):
 
     @abstractmethod
     async def renew_authorize(
-        self, user: User, authenticate: AuthenticateCredentials
+        self, user: User, authenticate_id: str | None = None
     ) -> tuple[AuthorizeCredentials, AuthenticateCredentials]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def decode_credentials(
+        self, credentials: AuthorizeCredentials | AuthenticateCredentials
+    ) -> User:
         raise NotImplementedError

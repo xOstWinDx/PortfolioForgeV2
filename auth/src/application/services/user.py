@@ -18,3 +18,9 @@ class UserService:
             await self.producer.create_user(user)
             await self.uow.commit()
         return user
+
+    async def update_user(self, user: User) -> User:
+        async with self.uow:
+            user = await self.uow.users.update(user)
+            await self.uow.commit()
+        return user

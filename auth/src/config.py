@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     def RABBITMQ_URL(self) -> str:
         return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}"
 
+    REDIS_URL: str
+
     ACCESS_TOKEN_EXPIRES: int = 30 * 60  # 30 minutes
     REFRESH_TOKEN_EXPIRES: int = 90 * 24 * 60 * 60  # 90 days
 
@@ -60,6 +62,15 @@ class Settings(BaseSettings):
         with open(self.PUBLIC_KEY_PATH, "rb") as f:
             public_key = serialization.load_pem_public_key(f.read())
         return public_key
+
+    ALLOWED_MIME_TYPES: set[str] = {"image/webp", "image/jpeg", "image/png"}
+    MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5 МБ
+    DEFAULT_PHOTO_URL: str
+    S3_ACCESS_KEY: str
+    S3_SECRET_KEY: str
+    S3_ENDPOINT_URL: str
+    S3_BUCKET_NAME: str
+    S3_PUBLIC_DOMAIN: str
 
     model_config = SettingsConfigDict(env_file=".env")
 

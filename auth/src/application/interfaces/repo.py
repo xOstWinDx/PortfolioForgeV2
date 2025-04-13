@@ -16,3 +16,7 @@ class IUserRepository(ABC):
     @abstractmethod
     async def get(self, filter: UserFilter) -> User | None:
         raise NotImplementedError
+
+    @abstractmethod
+    async def update(self, user: User) -> User:
+        raise NotImplementedError

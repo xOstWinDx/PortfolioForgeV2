@@ -5,6 +5,7 @@ from password_strength import PasswordPolicy
 from pydantic import EmailStr, field_validator
 from sqlmodel import SQLModel, Field, Relationship
 
+from src.config import settings
 from src.domain.user import User, RolesEnum
 from src.infrastructure.pwd_hash import hash_password
 
@@ -44,6 +45,7 @@ class RegisterUserSchema(LoginUserSchema, table=False):
             username=self.username,
             role=RolesEnum.USER,
             password=hash_password(self.password),
+            photo_url=settings.DEFAULT_PHOTO_URL,
         )
 
 
@@ -54,6 +56,8 @@ class UserModel(SQLModel, table=True):
     username: str = Field(max_length=20, min_length=6)
     hashed_password: bytes = Field(nullable=False)
     role_id: int = Field(nullable=False, foreign_key="roles.id")
+    photo_url: str = Field(default=settings.DEFAULT_PHOTO_URL)
+
     role: RoleModel = Relationship(sa_relationship_kwargs={"lazy": "joined"})
 
     @field_validator("hashed_password", mode="before")
@@ -75,6 +79,7 @@ class UserModel(SQLModel, table=True):
             username=user.username,
             hashed_password=user.password,
             role_id=role_id,
+            photo_url=user.photo_url,
         )
 
     def to_domain(self) -> User:
@@ -84,6 +89,7 @@ class UserModel(SQLModel, table=True):
             username=self.username,
             role=RolesEnum(self.role.name),
             password=self.hashed_password,
+            photo_url=self.photo_url,
         )
 
 
@@ -92,3 +98,4 @@ class UserReadSchema(SQLModel, table=False):
     email: EmailStr
     username: str
     role: str
+    photo_url: str

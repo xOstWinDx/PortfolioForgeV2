@@ -33,10 +33,12 @@ class User:
     username: str
     role: RolesEnum
     password: bytes | str  # str может быть у пользователя, в моменте создания.
+    photo_url: str
 
     def to_json(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "email": self.email,
             "username": self.username,
+            "photo_url": self.photo_url,
         }

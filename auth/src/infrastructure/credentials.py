@@ -9,14 +9,14 @@ from src.application.interfaces.credentials import ICredentialManager
 from src.config import settings
 from src.domain.credentials import AuthorizeCredentials, AuthenticateCredentials
 from src.domain.exceptions import UnauthorizedError
-from src.domain.user import User
+from src.domain.user import User, RolesEnum
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class JWTAccessPayload:
-    sub: int
+    sub: str
     role: str
     exp: int
     iat: int
@@ -24,7 +24,7 @@ class JWTAccessPayload:
 
 @dataclass(frozen=True)
 class JWTRefreshPayload:
-    sub: int
+    sub: str
     exp: int
     iat: int
 
@@ -49,7 +49,7 @@ class JWTCredentialManager(ICredentialManager):
             ).timestamp()
         )
         payload = JWTAccessPayload(
-            sub=user.id,
+            sub=str(user.id),
             role=user.role.value,
             exp=exp,
             iat=int(datetime.now().timestamp()),
@@ -69,7 +69,7 @@ class JWTCredentialManager(ICredentialManager):
             ).timestamp()
         )
         payload = JWTRefreshPayload(
-            sub=user.id, exp=exp, iat=int(datetime.now().timestamp())
+            sub=str(user.id), exp=exp, iat=int(datetime.now().timestamp())
         )
         token = jwt.encode(
             payload=asdict(payload),  # noqa
@@ -80,21 +80,33 @@ class JWTCredentialManager(ICredentialManager):
         return AuthenticateCredentials(credentials=token)
 
     async def renew_authorize(
-        self, user: User, authenticate: AuthenticateCredentials
+        self, user: User, authenticate_id: str | None = None
     ) -> tuple[AuthorizeCredentials, AuthenticateCredentials]:
-        refresh = authenticate.read()
+        return await self.make_authorize(user), await self.make_authenticate(user)
+
+    def decode_credentials(
+        self, credentials: AuthorizeCredentials | AuthenticateCredentials
+    ) -> User:
         try:
             payload = jwt.decode(
-                jwt=refresh, key=settings.PUBLIC_KEY, algorithms=[settings.ALGORITHM]
+                jwt=credentials.read(),
+                key=settings.PUBLIC_KEY,
+                algorithms=[settings.ALGORITHM],
             )
-            if payload["sub"] != user.id:
-                raise UnauthorizedError("Refresh token is invalid")
-
-            return await self.make_authorize(user), await self.make_authenticate(user)
+            return User(
+                id=int(payload["sub"]),
+                email="",
+                username="",
+                role=RolesEnum(payload["role"])
+                if "role" in payload
+                else RolesEnum.USER,
+                password="",
+                photo_url="",
+            )
         except jwt.ExpiredSignatureError:
-            raise UnauthorizedError("Refresh token is expired")
-        except jwt.InvalidTokenError:
-            raise UnauthorizedError("Refresh token is invalid")
+            raise UnauthorizedError("Token is expired")
+        except jwt.InvalidTokenError as e:
+            raise UnauthorizedError(f"Token is invalid {e}")
         except Exception as e:
             logger.warning(f"Unexpected error: {e}")
-            raise UnauthorizedError("Refresh token is invalid")
+            raise UnauthorizedError("Token is invalid")

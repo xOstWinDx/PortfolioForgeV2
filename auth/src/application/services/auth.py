@@ -14,14 +14,14 @@ class AuthService:
         self, uow: AbstractUnitOfWork, credential_manager: ICredentialManager
     ) -> None:
         self.uow = uow
-        self.credential_manager = credential_manager
+        self._credential_manager = credential_manager
 
     async def login(
         self, email: str, password: str
     ) -> tuple[AuthorizeCredentials, AuthenticateCredentials]:
         async with self.uow:
             user = await self.uow.users.get(UserFilter(email=email))
-            if not user:
+            if not isinstance(user, User):
                 user_password = uuid.uuid4().bytes
             elif not isinstance(user.password, bytes):
                 raise TypeError("User password is not bytes")
@@ -33,8 +33,14 @@ class AuthService:
                     raise RuntimeError(
                         "User is not instance of User, but it should be..."
                     )
-                access_token = await self.credential_manager.make_authorize(user)
-                refresh_token = await self.credential_manager.make_authenticate(user)
+                access_token = await self._credential_manager.make_authorize(user)
+                refresh_token = await self._credential_manager.make_authenticate(user)
                 return access_token, refresh_token
 
             raise UnauthorizedError("Invalid Email or Password")
+
+    async def refresh(
+        self, authenticate: AuthenticateCredentials
+    ) -> tuple[AuthorizeCredentials, AuthenticateCredentials]:
+        user = self._credential_manager.decode_credentials(authenticate)
+        return await self._credential_manager.renew_authorize(user, "")  # type: ignore

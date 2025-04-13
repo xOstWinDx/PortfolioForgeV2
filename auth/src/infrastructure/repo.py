@@ -52,3 +52,17 @@ class SQLUserRepository(IUserRepository):
         if not model:
             return None
         return model.to_domain()
+
+    async def update(self, user: User) -> User:
+        role = await self._get_role_by_name(user.role.value)
+        user_model = self.model.from_domain(user, role_id=role.id)
+        user_model.role = role
+        await self.session.merge(user_model)
+        await self.session.flush()
+        return user_model.to_domain()
+
+    async def _get_role_by_name(self, name: str) -> RoleModel:
+        query = select(RoleModel).where(RoleModel.name == name)  # noqa
+        res = await self.session.execute(query)
+        role = res.scalar_one_or_none()
+        return role

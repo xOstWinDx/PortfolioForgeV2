@@ -17,8 +17,8 @@ public_pem = public_key.public_bytes(
     encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.PKCS1
 )
 
-with open(settings.project_root / "private_key.pem", "wb") as f:
+with open(settings.__PRIVATE_KEY_PATH, "wb") as f:
     f.write(private_pem)
 
-with open(settings.project_root / "public_key.pem", "wb") as f:
+with open(settings.PUBLIC_KEY_PATH, "wb") as f:
     f.write(public_pem)

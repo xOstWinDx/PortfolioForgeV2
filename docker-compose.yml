@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  auth-db:
+    image: postgres:16
+    env_file:
+      - ./auth/.env.docker
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: >
+        sh -c '
+        pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+        '
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  auth-redis:
+    image: redis:7
+    volumes:
+      - auth-redis-data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    env_file:
+      - .env.docker
+    expose:
+      - "5672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
+
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    env_file:
+      - ./auth/.env.docker
+    expose:
+      - "8001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      auth-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - app-network
+
+  docs:
+    build:
+      context: ./docs
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker
+    expose:
+      - "8000"
+    depends_on:
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+
+  krakend:
+    image: devopsfaith/krakend:2.9
+    volumes:
+      - ./api_gateway/krakend.json:/etc/krakend/krakend.json
+    env_file:
+      - .env.docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth:
+          condition: service_healthy
+      docs:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/__health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  auth-db-data:
+  auth-redis-data:
+  rabbitmq-data:
+
+networks:
+  app-network:
+    driver: bridge

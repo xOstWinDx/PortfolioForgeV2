@@ -2,6 +2,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
+from password_strength import PasswordPolicy
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -76,3 +77,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+policy = PasswordPolicy.from_names(
+    length=8,  # Мин. Длинна 8
+    uppercase=1,  # 1 Заглавная
+    numbers=1,  # 1 Цифра
+    special=1,  # 1 Спецсимвол
+)

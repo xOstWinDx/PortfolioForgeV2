@@ -1,41 +1,46 @@
 import base64
 import io
-from datetime import datetime
+import logging
 from typing import Any, Annotated
 
-from PIL import Image
 from fastapi import APIRouter, Depends, UploadFile, HTTPException
-from fastapi.params import Cookie, File
+from fastapi.params import File
 from fastapi_cache.decorator import cache
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from src.application.interfaces.uow import AbstractUnitOfWork
 from src.application.services.auth import AuthService
+from src.application.services.image import ImageService
 from src.application.services.user import UserService
 from src.config import settings
 from src.domain.credentials import AuthenticateCredentials
-from src.domain.exceptions import UnauthorizedError
+from src.domain.exceptions import AuthenticationError, AuthorizationError
 from src.domain.user import User, RolesEnum
-from src.infrastructure.models import (
-    RegisterUserSchema,
-    UserReadSchema,
+from src.infrastructure.entities.schemas import (
     LoginUserSchema,
+    UserReadSchema,
+    CredentialsSchema,
+    RegisterUserForm,
 )
-from src.infrastructure.s3 import S3Client
 from src.presentation.http.dependencies import (
     get_user_service,
     get_auth_service,
     get_current_user,
-    get_s3_client,
+    get_image_service,
+    get_uow,
 )
-from src.presentation.http.schema import CredentialsSchema
-from src.utils.images.prepare import process_image_to_webp
+from src.presentation.http.docs.description import RETURN_TOKENS, REFRESH_COOKIE_NOTE
+from src.presentation.http.docs.responses import ResponsesEnum
 
-router = APIRouter(prefix="/auth")
+router = APIRouter()
 
 jwks = Annotated[dict[str, list[dict[str, Any]]], 200]
 
+logger = logging.getLogger(__name__)
 
-@router.get("/.well-known/jwks.json", status_code=200)
+
+@router.get("/.well-known/jwks.json", status_code=200, include_in_schema=False)
 @cache(expire=60 * 60 * 24 * 7)  # 7 days
 async def get_jwks() -> JSONResponse:
     public_numbers = settings.PUBLIC_KEY.public_numbers()
@@ -64,88 +69,156 @@ async def get_jwks() -> JSONResponse:
     return response
 
 
-@router.post("/register", status_code=201)
+@router.post(
+    "/register",
+    status_code=201,
+    summary="Регистрация",
+    responses={
+        409: ResponsesEnum.R_409,
+        201: {"description": "Пользователь успешно зарегистрирован"},
+        422: ResponsesEnum.R_422,
+    },
+    tags=["Authentication"],
+)
 async def register(
-    user_form_data: RegisterUserSchema,
+    user_form_data: Annotated[RegisterUserForm, Depends()],
+    uow: AbstractUnitOfWork = Depends(get_uow),
     user_service: UserService = Depends(get_user_service),
 ) -> UserReadSchema:
-    user = await user_service.create_user(user_form_data.to_domain())
+    async with uow:
+        user = await user_service.create_user(user_form_data.model.to_domain(), uow)
+        await uow.commit()
     return UserReadSchema.model_validate(user, from_attributes=True)
 
 
-@router.post("/login", status_code=200, response_model=CredentialsSchema)
+@router.post(
+    "/login",
+    status_code=200,
+    summary="Авторизоваться",
+    description=(f"{RETURN_TOKENS}"),
+    responses={
+        200: {"description": "Успешная авторизация"},
+        401: ResponsesEnum.R_401,
+        422: ResponsesEnum.R_422,
+    },
+    response_model=CredentialsSchema,
+    tags=["Authentication"],
+)
 async def login(
-    login_form_data: LoginUserSchema,
+    form_data: Annotated[LoginUserSchema, Depends()],
     auth_service: AuthService = Depends(get_auth_service),
 ) -> JSONResponse:
     credentials = await auth_service.login(
-        email=str(login_form_data.email), password=login_form_data.password
+        email=str(form_data.email), password=form_data.password
     )
-    res = {
-        "access_token": credentials[0].read(),
-        "refresh_token": credentials[1].read(),
-    }
+    res = {"access_token": credentials[0].read()}
     response = JSONResponse(content=res)
-    response.set_cookie(
-        key="access_token",
-        value=credentials[0].read(),
-        max_age=settings.ACCESS_TOKEN_EXPIRES,
-        httponly=True,
-    )
     response.set_cookie(
         key="refresh_token",
         value=credentials[1].read(),
         max_age=settings.REFRESH_TOKEN_EXPIRES,
-        secure=True,
         httponly=True,
     )
     return response
 
 
-@router.post("/refresh", status_code=200, response_model=CredentialsSchema)
+@router.post(
+    "/refresh",
+    status_code=200,
+    summary="Обновить токены",
+    description=(f"{REFRESH_COOKIE_NOTE}\n{RETURN_TOKENS}"),
+    responses={
+        401: ResponsesEnum.R_401,
+        200: {
+            "description": "Успешное обновление токенов",
+        },
+    },
+    response_model=CredentialsSchema,
+    tags=["Authentication"],
+)
 async def refresh(
-    refresh_token: Annotated[str, Cookie(include_in_schema=False)],
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> JSONResponse:
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        logger.warning(
+            f"Refresh token not found, cookies: {request.cookies.keys()}",
+        )
+        raise AuthenticationError("Refresh token not found")
     credentials = await auth_service.refresh(AuthenticateCredentials(refresh_token))
     res = {
         "access_token": credentials[0].read(),
-        "refresh_token": credentials[1].read(),
     }
     response = JSONResponse(content=res)
     response.set_cookie(
-        key="access_token",
-        value=res["access_token"],
-        max_age=settings.ACCESS_TOKEN_EXPIRES,
+        key="refresh_token",
+        value=credentials[1].read(),
+        max_age=settings.REFRESH_TOKEN_EXPIRES,
         httponly=True,
     )
     return response
 
 
-@router.post("/logout", status_code=200)
+@router.post(
+    "/logout",
+    status_code=204,
+    summary="Выход",
+    description=(f"{REFRESH_COOKIE_NOTE}"),
+    responses={
+        204: {
+            "description": "Успешное выход из аккаунта",
+        }
+    },
+    tags=["Authentication"],
+)
 async def logout() -> JSONResponse:
     res = {"status": "success"}
     response = JSONResponse(content=res)
-    response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token")
     return response
 
 
-@router.get("/users/me", status_code=200)
+@router.get(
+    "/users/me",
+    status_code=200,
+    summary="Профиль",
+    responses={
+        200: {"description": "Успешное получение информации о текущем пользователе"},
+        401: ResponsesEnum.R_401,
+        404: ResponsesEnum.R_404,
+    },
+    response_model=UserReadSchema,
+    tags=["Users"],
+)
 @cache(expire=180)
 async def get_me(user: User = Depends(get_current_user)) -> UserReadSchema:
     return UserReadSchema.model_validate(user, from_attributes=True)
 
 
-@router.patch("/users/{user_id}/photo", status_code=200)
+@router.patch(
+    "/users/{user_id}/photo",
+    status_code=200,
+    summary="Изменить аватар пользователя",
+    responses={
+        200: {"description": "Успешное изменение фотографии пользователя"},
+        401: ResponsesEnum.R_401,
+        404: ResponsesEnum.R_404,
+        403: ResponsesEnum.R_403,
+        422: ResponsesEnum.R_422,
+    },
+    response_model=UserReadSchema,
+    tags=["Users"],
+)
 async def change_photo(
     user_id: int,
+    file: UploadFile = File(
+        ..., description="Фотография в формате: (JPEG, PNG, WEBP)", media_type="image/*"
+    ),
+    uow: AbstractUnitOfWork = Depends(get_uow),
     user_service: UserService = Depends(get_user_service),
     user: User = Depends(get_current_user),
-    file: UploadFile = File(
-        description="Upload image (JPEG, PNG, WEBP)", media_type="image/*"
-    ),
-    s3_client: S3Client = Depends(get_s3_client),
+    image_service: ImageService = Depends(get_image_service),
 ) -> UserReadSchema:
     if user_id == user.id or user.role >= RolesEnum.MODERATOR:
         # Проверка размера
@@ -167,29 +240,12 @@ async def change_photo(
         if file_extension not in {"webp", "jpg", "jpeg", "png"}:
             raise HTTPException(status_code=400, detail="Invalid file extension")
 
-        # Проверка типа
-        if file.content_type not in settings.ALLOWED_MIME_TYPES:
-            raise HTTPException(status_code=400, detail="Invalid MIME type")
-        try:
-            Image.open(file_content).verify()  # Проверяет, что это изображение
-        except Exception:
-            raise HTTPException(status_code=400, detail="File is not a valid image")
-        await file.seek(0)  # Сбрасываем позицию для дальнейшей обработки
-
-        file_content, file_extension = process_image_to_webp(file_obj=file_content)
-
-        # Формируем имя файла
-        file_key = f"profiles/{user_id}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.{file_extension}"
-
-        # Загружаем в S3
-        result = await s3_client.upload_file(
-            file_obj=file_content, file_key=file_key, content_type=file.content_type
-        )
-
-        # Обновляем данные пользователя
-        user.photo_url = result["file_url"]
-        res = await user_service.update_user(user)
+        async with uow:
+            avatar = await image_service.add(file_content, uow)
+            user.avatar = avatar
+            res = await user_service.update_user(user, uow)
+            await uow.commit()
 
         return UserReadSchema.model_validate(res, from_attributes=True)
 
-    raise UnauthorizedError("You are not allowed to change this user's photo")
+    raise AuthorizationError("You are not allowed to change this user's photo")

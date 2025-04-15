@@ -13,17 +13,23 @@ class RolesEnum(Enum):
     ADMIN = "ADMIN"
 
     # Порядок для сравнения
-    _order = {"GUEST": 0, "BAN": 1, "USER": 2, "MODERATOR": 3, "ADMIN": 4}
+    __order = {"GUEST": 0, "BAN": 1, "USER": 2, "MODERATOR": 3, "ADMIN": 4}
 
     def __lt__(self, other: Any) -> bool:
         if not isinstance(other, RolesEnum):
             return NotImplemented
-        return self._order[self.value] < self._order[other.value]
+        return self.__order[self.value] < self.__order[other.value]
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, RolesEnum):
             return NotImplemented
         return self.value == other.value  # type: ignore
+
+
+@dataclass
+class Avatar:
+    id: str
+    file_url: str
 
 
 @dataclass
@@ -33,12 +39,12 @@ class User:
     username: str
     role: RolesEnum
     password: bytes | str  # str может быть у пользователя, в моменте создания.
-    photo_url: str
+    avatar: Avatar
 
     def to_json(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "email": self.email,
             "username": self.username,
-            "photo_url": self.photo_url,
+            "photo_url": self.avatar.file_url,
         }

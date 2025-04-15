@@ -1,20 +1,10 @@
-from typing import Annotated, Optional
+from typing import Optional
 
-from fastapi import Form
-from password_strength import PasswordPolicy
-from pydantic import EmailStr, field_validator
+from pydantic import field_validator
 from sqlmodel import SQLModel, Field, Relationship
 
-from src.config import settings
-from src.domain.user import User, RolesEnum
+from src.domain.user import User, RolesEnum, Avatar
 from src.infrastructure.pwd_hash import hash_password
-
-policy = PasswordPolicy.from_names(
-    length=8,  # Мин. Длинна 8
-    uppercase=1,  # 1 Заглавная
-    numbers=1,  # 1 Цифра
-    special=1,  # 1 Спецсимвол
-)
 
 
 class RoleModel(SQLModel, table=True):
@@ -23,30 +13,10 @@ class RoleModel(SQLModel, table=True):
     name: str = Field(max_length=20, nullable=False, unique=True)
 
 
-class LoginUserSchema(SQLModel, table=False):
-    email: Annotated[EmailStr, Form(max_length=50, min_length=2)]
-    password: Annotated[str, Form(max_length=64, min_length=8)]
-
-
-class RegisterUserSchema(LoginUserSchema, table=False):
-    username: Annotated[str, Form(max_length=20, min_length=6)]
-
-    @field_validator("password")
-    def validate_password(cls, value: str) -> str:
-        errors = policy.test(value)
-        if errors:
-            raise ValueError(f"Password too weak: {', '.join(str(e) for e in errors)}")
-        return value
-
-    def to_domain(self) -> User:
-        return User(
-            id=None,
-            email=str(self.email),
-            username=self.username,
-            role=RolesEnum.USER,
-            password=hash_password(self.password),
-            photo_url=settings.DEFAULT_PHOTO_URL,
-        )
+class ImageModel(SQLModel, table=True):
+    __tablename__ = "images"
+    id: str = Field(primary_key=True)
+    file_url: str = Field(nullable=False, unique=True)
 
 
 class UserModel(SQLModel, table=True):
@@ -56,9 +26,10 @@ class UserModel(SQLModel, table=True):
     username: str = Field(max_length=20, min_length=6)
     hashed_password: bytes = Field(nullable=False)
     role_id: int = Field(nullable=False, foreign_key="roles.id")
-    photo_url: str = Field(default=settings.DEFAULT_PHOTO_URL)
+    avatar_id: str = Field(nullable=True, foreign_key="images.id")
 
     role: RoleModel = Relationship(sa_relationship_kwargs={"lazy": "joined"})
+    avatar: ImageModel = Relationship(sa_relationship_kwargs={"lazy": "joined"})
 
     @field_validator("hashed_password", mode="before")
     @classmethod
@@ -79,7 +50,7 @@ class UserModel(SQLModel, table=True):
             username=user.username,
             hashed_password=user.password,
             role_id=role_id,
-            photo_url=user.photo_url,
+            avatar_id=user.avatar.id,
         )
 
     def to_domain(self) -> User:
@@ -89,13 +60,5 @@ class UserModel(SQLModel, table=True):
             username=self.username,
             role=RolesEnum(self.role.name),
             password=self.hashed_password,
-            photo_url=self.photo_url,
+            avatar=Avatar(id=self.avatar.id, file_url=self.avatar.file_url),
         )
-
-
-class UserReadSchema(SQLModel, table=False):
-    id: int
-    email: EmailStr
-    username: str
-    role: str
-    photo_url: str

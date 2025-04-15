@@ -18,6 +18,12 @@ class RabbitMQProducer(IProducer):
         self.connection = connection
 
     async def create_user(self, user: User) -> None:
+        await self._publish(user, MessageTypeEnum.CREATED)
+
+    async def update_user(self, user: User) -> None:
+        await self._publish(user, MessageTypeEnum.UPDATED)
+
+    async def _publish(self, user: User, msg_type: MessageTypeEnum) -> None:
         async with self.connection.channel() as channel:
             exchange = await channel.declare_exchange(
                 "user_events", type=ExchangeType.FANOUT, durable=True
@@ -26,7 +32,7 @@ class RabbitMQProducer(IProducer):
             await exchange.publish(
                 message=Message(
                     body=msg,
-                    type=MessageTypeEnum.CREATED,
+                    type=msg_type,
                     delivery_mode=DeliveryMode.PERSISTENT,
                 ),
                 routing_key="",

@@ -7,7 +7,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel  # noqa
 
-import src.infrastructure.models  # noqa
+import src.infrastructure.entities.models  # noqa
 from src.config import settings
 
 # this is the Alembic Config object, which provides

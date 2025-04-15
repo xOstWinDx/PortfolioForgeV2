@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 
-from src.application.interfaces.repo import IUserRepository
+from src.application.interfaces.repo import IUserRepository, IImageRepository
 
 
 class AbstractUnitOfWork(ABC):
     @property
     @abstractmethod
     def users(self) -> IUserRepository:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def images(self) -> IImageRepository:
         raise NotImplementedError
 
     @abstractmethod

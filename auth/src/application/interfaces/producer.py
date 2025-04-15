@@ -8,3 +8,8 @@ class IProducer(ABC):
     async def create_user(self, user: User) -> None:
         """Публикует ивент создания пользователя"""
         raise NotImplementedError
+
+    @abstractmethod
+    async def update_user(self, user: User) -> None:
+        """Публикует ивент обновления пользователя"""
+        raise NotImplementedError

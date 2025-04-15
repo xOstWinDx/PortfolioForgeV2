@@ -1,15 +1,15 @@
 import logging
 
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer
-from starlette import status
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
 from starlette.requests import Request
 
 from src.application.interfaces.cache import ICacheClient
 from src.application.services.auth import AuthService
+from src.application.services.image import ImageService
 from src.application.services.user import UserService
-from src.domain.credentials import AuthenticateCredentials, AuthorizeCredentials
-from src.domain.exceptions import UnauthorizedError
+from src.domain.credentials import AuthorizeCredentials
+from src.domain.exceptions import AuthenticationError, AuthorizationError
 from src.domain.filter import UserFilter
 from src.domain.user import User
 from src.infrastructure.credentials import JWTCredentialManager
@@ -17,37 +17,13 @@ from src.infrastructure.database import DEFAULT_SESSION_FACTORY
 from src.infrastructure.producer import RabbitMQProducer
 from src.infrastructure.s3 import S3Client
 from src.infrastructure.uow import UnitOfWork
+from src.presentation.http.docs.description import AUTH_HEADER_NOTE
 
 logger = logging.getLogger(__name__)
 
-
-class AccessTokenBearer(HTTPBearer):
-    async def __call__(self, request: Request) -> str | None:
-        # 1. Проверяем куки в первую очередь
-        if "access_token" in request.cookies:
-            return request.cookies["access_token"]  # type: ignore
-        return None
-
-
-class RefreshTokenBearer(HTTPBearer):
-    async def __call__(self, request: Request) -> str | None:
-        # 1. Проверяем куки в первую очередь
-        if "refresh_token" in request.cookies:
-            return request.cookies["refresh_token"]  # type: ignore
-        return None
-
-
-class CredentialsBearer(AccessTokenBearer, RefreshTokenBearer):
-    async def __call__(  # type: ignore
-        self, request: Request
-    ) -> tuple[AuthenticateCredentials, AuthorizeCredentials]:
-        access = await AccessTokenBearer.__call__(self, request)
-        refresh = await RefreshTokenBearer.__call__(self, request)
-
-        return AuthenticateCredentials(access), AuthorizeCredentials(refresh)
-
-
-credentials_schema = CredentialsBearer(auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/login", auto_error=False, description=AUTH_HEADER_NOTE
+)
 
 
 async def get_uow() -> UnitOfWork:
@@ -65,10 +41,9 @@ async def get_producer(request: Request) -> RabbitMQProducer:
 
 
 async def get_user_service(
-    uow: UnitOfWork = Depends(get_uow),
     producer: RabbitMQProducer = Depends(get_producer),
 ) -> UserService:
-    return UserService(uow, producer)
+    return UserService(producer)
 
 
 async def get_auth_service(
@@ -79,28 +54,44 @@ async def get_auth_service(
 
 
 async def get_current_user(
-    credentials: tuple[AuthenticateCredentials, AuthorizeCredentials] = Depends(
-        credentials_schema
-    ),
+    request: Request,
+    token: str = Depends(oauth2_scheme),
     uow: UnitOfWork = Depends(get_uow),
-    credentials_manager: JWTCredentialManager = Depends(get_credential_manager),
+    credential_manager: JWTCredentialManager = Depends(get_credential_manager),
 ) -> User:
+    # Продакшен-режим: берём данные из заголовков API Gateway
+    if "X-User-ID" in request.headers:
+        user_id = request.headers["X-User-ID"]
+
+        if not user_id.isdigit():
+            raise AuthorizationError("User not found")
+
+        async with uow:
+            user = await uow.users.get(UserFilter(id=int(user_id)))
+            if not user:
+                raise AuthorizationError("User not found")
+        return user
+
+    # Локальный режим: проверяем Bearer token
+    if not token:
+        raise AuthenticationError("Token not found")
+
     try:
-        base_user = credentials_manager.decode_credentials(credentials[0])
-    except UnauthorizedError:
-        try:
-            base_user = credentials_manager.decode_credentials(credentials[1])
-        except UnauthorizedError as e:
-            logger.warning(e)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-            )
-    async with uow:
-        user = await uow.users.get(UserFilter(id=base_user.id))
-    if not isinstance(user, User):
-        raise UnauthorizedError("User not found")
-    return user
+        user_data = credential_manager.decode_credentials(AuthorizeCredentials(token))
+        async with uow:
+            user = await uow.users.get(UserFilter(id=user_data.id))
+            if not user:
+                AuthorizationError("User not found")
+        return user
+    except Exception as e:
+        raise AuthenticationError(f"Token is invalid {e}")
 
 
 async def get_s3_client() -> S3Client:
     return S3Client()
+
+
+async def get_image_service(
+    s3_client: S3Client = Depends(get_s3_client),
+) -> ImageService:
+    return ImageService(s3_client)

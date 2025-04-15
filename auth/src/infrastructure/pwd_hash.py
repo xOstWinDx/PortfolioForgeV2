@@ -1,4 +1,8 @@
+import logging
+
 import bcrypt
+
+logger = logging.getLogger(__name__)
 
 
 def hash_password(password: str) -> bytes:
@@ -6,4 +10,10 @@ def hash_password(password: str) -> bytes:
 
 
 def verify_password(password: str, hashed_password: bytes) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed_password)  # type: ignore
+    try:
+        res = bcrypt.checkpw(password.encode(), hashed_password)
+    except ValueError:
+        logger.warning("Invalid hash")
+        return False
+    else:
+        return res  # type: ignore

@@ -1,13 +1,18 @@
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from src.application.interfaces.uow import AbstractUnitOfWork
-from src.infrastructure.repo import SQLUserRepository
+from src.infrastructure.repo import SQLUserRepository, SQLImageRepository
 
 
 class UnitOfWork(AbstractUnitOfWork):
     def __init__(self, session_maker: async_sessionmaker[AsyncSession]) -> None:
         self.session_maker = session_maker
         self.session: None | AsyncSession = None
+
+    @property
+    def images(self) -> SQLImageRepository:
+        assert self.session, "aenter() must be called first"
+        return SQLImageRepository(self.session)
 
     @property
     def users(self) -> SQLUserRepository:

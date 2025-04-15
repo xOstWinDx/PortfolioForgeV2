@@ -8,8 +8,8 @@ from src.application.interfaces.cache import ICacheClient
 from src.application.interfaces.credentials import ICredentialManager
 from src.config import settings
 from src.domain.credentials import AuthorizeCredentials, AuthenticateCredentials
-from src.domain.exceptions import UnauthorizedError
-from src.domain.user import User, RolesEnum
+from src.domain.exceptions import AuthenticationError
+from src.domain.user import User, RolesEnum, Avatar
 
 logger = logging.getLogger(__name__)
 
@@ -101,12 +101,12 @@ class JWTCredentialManager(ICredentialManager):
                 if "role" in payload
                 else RolesEnum.USER,
                 password="",
-                photo_url="",
+                avatar=Avatar(id="", file_url=""),
             )
         except jwt.ExpiredSignatureError:
-            raise UnauthorizedError("Token is expired")
+            raise AuthenticationError("Token is expired")
         except jwt.InvalidTokenError as e:
-            raise UnauthorizedError(f"Token is invalid {e}")
+            raise AuthenticationError(f"Token is invalid {e}")
         except Exception as e:
             logger.warning(f"Unexpected error: {e}")
-            raise UnauthorizedError("Token is invalid")
+            raise e

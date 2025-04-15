@@ -1,9 +1,7 @@
-import uuid
-
 from src.application.interfaces.credentials import ICredentialManager
 from src.application.interfaces.uow import AbstractUnitOfWork
 from src.domain.credentials import AuthorizeCredentials, AuthenticateCredentials
-from src.domain.exceptions import UnauthorizedError
+from src.domain.exceptions import AuthenticationError
 from src.domain.filter import UserFilter
 from src.domain.user import User
 from src.infrastructure.pwd_hash import verify_password
@@ -22,7 +20,7 @@ class AuthService:
         async with self.uow:
             user = await self.uow.users.get(UserFilter(email=email))
             if not isinstance(user, User):
-                user_password = uuid.uuid4().bytes
+                user_password = b"$2b$12$AAAAAAAAAAAAAAAAAAAAAO6W7wBQe8C9Xp7a2Z5JZ5JZ5JZ5JZ5JZ5JZ5JZ5JZ5JZ5"
             elif not isinstance(user.password, bytes):
                 raise TypeError("User password is not bytes")
             else:
@@ -37,7 +35,7 @@ class AuthService:
                 refresh_token = await self._credential_manager.make_authenticate(user)
                 return access_token, refresh_token
 
-            raise UnauthorizedError("Invalid Email or Password")
+            raise AuthenticationError("Invalid Email or Password")
 
     async def refresh(
         self, authenticate: AuthenticateCredentials

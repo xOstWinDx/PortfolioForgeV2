@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+# Устанавливаем make
+RUN apt-get update && apt-get install -y make && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY poetry.lock pyproject.toml ./
+
+COPY Makefile ./
+
+RUN make install
+
+COPY . .
+
+CMD ["make", "run"]
+

@@ -2,6 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+# TODO: наследовать их от HTTPException и райзить адекватно.
+
 
 class AuthenticationErrorSchema(BaseModel):
     detail: str = Field(examples=["Invalid Token", "Incorrect Email or Password"])

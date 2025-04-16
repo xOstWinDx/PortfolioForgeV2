@@ -2,6 +2,8 @@ from io import BytesIO
 from PIL import Image
 from PIL.Image import Resampling
 
+# TODO поправить работу с ресайзом, возможно стоит брать центр фотографии и увеличивать её до нужного размера.
+
 
 def process_image_to_webp(
     file_obj: BytesIO, resize_to: tuple[int, int] = (512, 512), quality: int = 85

@@ -43,6 +43,11 @@ MICROSERVICES = {
         "prod_url": "http://auth:8001/openapi.json",
         "description": "Сервис авторизации для работы с пользователями и токенами.",
     },
+    "resume": {
+        "dev_url": "http://localhost:8002/openapi.json",
+        "prod_url": "http://resume-api:8002/openapi.json",
+        "description": "Сервис отображения личных данных",
+    },
 }
 
 # Определяем среду
@@ -90,7 +95,7 @@ def merge_openapi_schemas(schemas: list[tuple[str, Dict[str, Any]]]) -> Dict[str
         # Объединяем пути
         for path, methods in schema.get("paths", {}).items():
             # Удаляем префиксы для плоской структуры
-            normalized_path = f"/{path.lstrip('/api').lstrip('/')}"
+            normalized_path = path
             if normalized_path not in merged_schema["paths"]:
                 merged_schema["paths"][normalized_path] = {}
 

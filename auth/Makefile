@@ -7,4 +7,4 @@ migrate:
 
 run:
 	make migrate
-	poetry run hypercorn main:app --bind 0.0.0.0:8001 --workers $${WORKERS:-4}
+	poetry run hypercorn main:app --bind 0.0.0.0:8001 --workers $${WORKERS:-2}

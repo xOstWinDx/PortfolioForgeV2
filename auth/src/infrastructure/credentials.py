@@ -33,15 +33,6 @@ class JWTCredentialManager(ICredentialManager):
     def __init__(self, cache_client: ICacheClient) -> None:
         self.cache_client = cache_client
 
-    # ────────────────
-    # TODO [13.04.2025 | Medium]
-    # Assigned to: stark
-    # Description: Добавить работу с кешем
-    # Steps:
-    #   - White
-    #   - black
-    # ────────────────
-
     async def make_authorize(self, user: User) -> AuthorizeCredentials:
         exp = int(
             (

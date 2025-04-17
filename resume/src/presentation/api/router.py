@@ -42,6 +42,7 @@ async def get_profile(
     tags=["Projects"],
 )
 async def get_projects(
+    featured: bool = Query(None, description="Показать только избранные"),
     project_service: ProjectService = Depends(get_project_service),
     uow: AbstractUnitOfWork = Depends(get_uow),
     offset: int = Query(ge=0, default=0, description="Смещение по страницам"),
@@ -50,8 +51,8 @@ async def get_projects(
     ),
 ) -> list[ProjectRead]:
     async with uow:
-        return await project_service.get(  # type: ignore
-            ProjectsFilter(), uow, limit=limit, offset=offset
+        return await project_service.get(  # type: ignore # noqa
+            ProjectsFilter(is_featured=featured), uow, limit=limit, offset=offset
         )
 
 

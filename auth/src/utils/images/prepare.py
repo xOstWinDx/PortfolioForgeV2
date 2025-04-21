@@ -5,7 +5,7 @@ from PIL.Image import Resampling
 
 
 def process_image_to_webp(
-    file_obj: BytesIO, resize_to: tuple[int, int] = (512, 512), quality: int = 85
+        file_obj: BytesIO, resize_to: tuple[int, int] = (512, 512), quality: int = 85
 ) -> tuple[BytesIO, str]:
     """
     Обработка изображения для аватарки: центрированная обрезка, ресайз и конвертация в WebP.

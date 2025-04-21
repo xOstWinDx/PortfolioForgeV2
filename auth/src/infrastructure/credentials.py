@@ -33,6 +33,7 @@ class JWTCredentialManager(ICredentialManager):
     def __init__(self, cache_client: ICacheClient) -> None:
         self.cache_client = cache_client
 
+
     async def make_authorize(self, user: User) -> AuthorizeCredentials:
         exp = int(
             (

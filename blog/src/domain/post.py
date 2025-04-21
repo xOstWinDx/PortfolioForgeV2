@@ -6,7 +6,7 @@ from src.domain.author import Author
 
 @dataclass(frozen=True)
 class Post:
-    id: str  # ObjectID
+    id: str # ObjectID
     title: str
     content: str
     author: Author
@@ -14,3 +14,4 @@ class Post:
     likes: int
     created_at: datetime
     comments_count: int
+    photos: list[str]

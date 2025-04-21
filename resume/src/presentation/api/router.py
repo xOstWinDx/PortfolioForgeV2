@@ -25,8 +25,8 @@ router = APIRouter()
     tags=["Profile"],
 )
 async def get_profile(
-    profile_service: ProfileService = Depends(get_profile_service),
-    uow: AbstractUnitOfWork = Depends(get_uow),
+        profile_service: ProfileService = Depends(get_profile_service),
+        uow: AbstractUnitOfWork = Depends(get_uow),
 ) -> ProfileRead:
     async with uow:
         profile = await profile_service.get_profile(uow)
@@ -42,13 +42,13 @@ async def get_profile(
     tags=["Projects"],
 )
 async def get_projects(
-    featured: bool = Query(None, description="Показать только избранные"),
-    project_service: ProjectService = Depends(get_project_service),
-    uow: AbstractUnitOfWork = Depends(get_uow),
-    offset: int = Query(ge=0, default=0, description="Смещение по страницам"),
-    limit: int = Query(
-        gt=0, default=10, description="Количество элементов на странице"
-    ),
+        featured: bool = Query(None, description="Показать только избранные"),
+        project_service: ProjectService = Depends(get_project_service),
+        uow: AbstractUnitOfWork = Depends(get_uow),
+        offset: int = Query(ge=0, default=0, description="Смещение по страницам"),
+        limit: int = Query(
+            gt=0, default=10, description="Количество элементов на странице"
+        ),
 ) -> list[ProjectRead]:
     async with uow:
         return await project_service.get(  # type: ignore # noqa
@@ -66,7 +66,9 @@ async def get_projects(
         404: {
             "description": "Проект не найден",
             "content": {
-                "application/json": {"schema": {"detail": "Project not found"}}
+                "application/json": {
+                    "schema": {"detail": "Project not found"}
+                }
             },
         },
         422: R_422,
@@ -74,9 +76,9 @@ async def get_projects(
     tags=["Projects"],
 )
 async def get_project(
-    project_id: int,
-    project_service: ProjectService = Depends(get_project_service),
-    uow: AbstractUnitOfWork = Depends(get_uow),
+        project_id: int,
+        project_service: ProjectService = Depends(get_project_service),
+        uow: AbstractUnitOfWork = Depends(get_uow),
 ) -> ProjectRead:
     async with uow:
         projects = await project_service.get(
@@ -84,7 +86,7 @@ async def get_project(
         )
         if not projects:
             raise HTTPException(status_code=404, detail="Project not found")
-        return projects[0]
+        return projects[0]  # type: ignore # noqa
 
 
 @router.get("/health", status_code=200, include_in_schema=False)

@@ -13,12 +13,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
 from src.config import settings
-from src.domain.exceptions import (
-    ConflictError,
-    AuthenticationError,
-    AuthorizationError,
-    ValidationError,
-)
+from src.domain.exceptions import ConflictError, AuthenticationError, AuthorizationError, ValidationError
 from src.infrastructure.exceptions import S3ClientException
 from src.presentation.http.docs.openapi import custom_openapi
 from src.presentation.http.router import router
@@ -106,11 +101,8 @@ async def openapi_json() -> dict[str, Any]:
 
 
 @app.exception_handler(ValidationError)
-async def validation_error_handler(
-    request: Request, exc: ValidationError
-) -> dict[str, Any]:
+async def validation_error_handler(request: Request, exc: ValidationError) -> dict[str, Any]:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
 
 @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
 async def get_documentation() -> HTMLResponse:

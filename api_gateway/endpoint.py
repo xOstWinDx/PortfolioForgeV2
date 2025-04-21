@@ -48,3 +48,4 @@ class Endpoint:
             "backend": [back.dump() for back in self.backend],
             "input_query_strings": self.input_query_strings,
         }
+

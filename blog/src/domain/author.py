@@ -7,3 +7,4 @@ class Author:
     name: str
     email: str
     photo_url: str
+

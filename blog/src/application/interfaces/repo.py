@@ -5,28 +5,30 @@ from src.domain.comment import Comment
 from src.domain.post import Post
 
 
-class PostsResult(NamedTuple):
+class PostsResultFromDB(NamedTuple):
     posts: list[Post]
     has_next: bool
 
 
-class CommentsResult(NamedTuple):
+class CommentsResultFromDB(NamedTuple):
     comments: list[Comment]
     has_next: bool
 
 
 class IPostsRepository(ABC):
+
     @abstractmethod
-    async def get_post(self, post_id: str) -> tuple[Post, list[Comment]] | None:
+    async def get_post(self, post_id: str) -> Post | None:
         raise NotImplementedError
+
 
     @abstractmethod
     async def get_posts(
-        self,
-        last_id: str | None = None,
-        limit: int = 20,
-        sort: Literal["asc", "desc"] = "desc",
-    ) -> PostsResult:
+            self,
+            last_id: str | None = None,
+            limit: int = 20,
+            sort: Literal["asc", "desc"] = "desc",
+    ) -> PostsResultFromDB:
         raise NotImplementedError
 
     @abstractmethod
@@ -47,14 +49,15 @@ class IPostsRepository(ABC):
 
 
 class ICommentsRepository(ABC):
+
     @abstractmethod
     async def get_comments(
-        self,
-        post_id: str,
-        last_id: str | None = None,
-        limit: int = 10,
-        sort: Literal["asc", "desc"] = "desc",
-    ) -> CommentsResult:
+            self,
+            post_id: str,
+            last_id: str | None = None,
+            limit: int = 10,
+            sort: Literal["asc", "desc"] = "desc",
+    ) -> CommentsResultFromDB:
         raise NotImplementedError
 
     @abstractmethod
@@ -75,10 +78,10 @@ class ICommentsRepository(ABC):
 
     @abstractmethod
     async def get_answers(
-        self,
-        comment_id: str,
-        last_id: str | None = None,
-        limit: int = 10,
-        sort: Literal["asc", "desc"] = "desc",
-    ) -> CommentsResult:
+            self,
+            comment_id: str,
+            last_id: str | None = None,
+            limit: int = 10,
+            sort: Literal["asc", "desc"] = "desc",
+    ) -> CommentsResultFromDB:
         raise NotImplementedError

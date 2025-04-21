@@ -95,7 +95,7 @@ async def register(
     "/login",
     status_code=200,
     summary="Авторизоваться",
-    description=(f"{RETURN_TOKENS}"),
+    description=f"{RETURN_TOKENS}",
     responses={
         200: {"description": "Успешная авторизация"},
         401: ResponsesEnum.R_401,

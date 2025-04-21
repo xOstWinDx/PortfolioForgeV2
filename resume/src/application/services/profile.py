@@ -3,6 +3,7 @@ from src.domain.entities.profile import Profile
 
 
 class ProfileService:
+
     @staticmethod
     async def update_profile(profile: Profile, uow: AbstractUnitOfWork) -> Profile:
         return await uow.profiles.update(profile)

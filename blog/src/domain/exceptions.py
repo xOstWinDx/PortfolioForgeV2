@@ -8,11 +8,10 @@ class ExceptionCode(StrEnum):
 
 
 class DomainException(Exception):
-    def __init__(self, *, message: str, code: ExceptionCode) -> None:
+    def __init__(self,*, message: str, code: ExceptionCode) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
-
 
 class PostNotFoundException(DomainException):
     def __init__(self, post_id: str) -> None:
@@ -21,3 +20,5 @@ class PostNotFoundException(DomainException):
 
     def __repr__(self) -> str:
         return self.message + self.code
+
+

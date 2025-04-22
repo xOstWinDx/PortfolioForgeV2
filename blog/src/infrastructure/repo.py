@@ -26,7 +26,41 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         limit: int = 20,
         sort: Literal["asc", "desc"] = "desc"
     ) -> PostsResultFromDB:
-        pass
+        pipline = [
+            {
+                "$match": {
+                    **(
+                        {
+                            "_id": {"$lt": ObjectId(last_id)}
+                            if sort == "desc"
+                            else {"$gt": ObjectId(last_id)}
+                        }
+                        if last_id
+                        else {}
+                    )
+                }
+            },
+            {"$sort": {"_id": -1 if sort == "desc" else 1}},
+            {"$limit": limit + 1},
+            {
+                "$lookup": {
+                    "from": "comments",
+                    "localField": "_id",
+                    "foreignField": "post_id",
+                    "as": "recent_comments",
+                    "pipeline": [
+                        {"$match": {"parent_id": None}},  # только корневые комментарии
+                        {"$sort": {"_id": -1}},
+                        {"$limit": 5},
+                    ],
+                }
+            },
+        ]
+        cursor = self.collection.aggregate(pipline)
+        result = [Post.from_dict(post) async for post in cursor]
+        has_next = len(result) > limit
+        return PostsResultFromDB(posts=result[:limit], has_next=has_next)
+
 
     async def create_post(self, post: Post) -> Post:
         pass

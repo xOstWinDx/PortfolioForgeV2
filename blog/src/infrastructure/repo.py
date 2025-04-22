@@ -8,8 +8,10 @@ from src.domain.post import Post
 
 class MongoMixin:
 
-    def __init__(self, mongo_client: AsyncIOMotorClient) -> None:
-        self.client = mongo_client
+    def __init__(self, mongo_client: AsyncIOMotorClient, db_name: str, collection_name: str) -> None:
+        self._client = mongo_client
+        self.database = self._client.get_database(db_name)
+        self.collection = self.database.get_collection(collection_name)
 
 
 class MongoPostRepository(IPostsRepository, MongoMixin):

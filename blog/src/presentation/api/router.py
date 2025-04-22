@@ -63,7 +63,7 @@ async def get_posts(
     path="/{post_id}/like",
 )
 async def like_post(
-    post_id: str,
+    post_id,
     user_id = Header(alias="X-User-ID"),
     posts_service: PostsService = Depends(get_posts_service),
 ):

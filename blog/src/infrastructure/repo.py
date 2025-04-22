@@ -17,7 +17,8 @@ class MongoMixin:
 class MongoPostRepository(IPostsRepository, MongoMixin):
 
     async def get_post(self, post_id: str) -> Post | None:
-        pass
+        post = await self.collection.find_one({"_id"})
+        return Post.from_dict(post) if post else None
 
     async def get_posts(
         self, last_id: str | None = None,

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Query
+
+from fastapi import APIRouter, Depends, Query, Header
 from starlette import status
 
 from src.application.services.posts import PostsService
@@ -17,7 +18,8 @@ router = APIRouter(prefix="/posts")
     responses={
         200: {"description": "Успешное получение поста"},
         404: {
-            "description": "Пост не найден", "content":
+            "description": "Пост не найден",
+            "content":
                 {"application/json":
                      {"schema": ExceptionSchema.model_json_schema()}
                  }

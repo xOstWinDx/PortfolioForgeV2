@@ -8,3 +8,10 @@ class Author:
     email: str
     photo_url: str
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "photo_url": self.photo_url,
+        }

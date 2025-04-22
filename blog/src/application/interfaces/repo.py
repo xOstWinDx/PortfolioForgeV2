@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Literal, NamedTuple
 
+from src.domain.author import Author
 from src.domain.comment import Comment
 from src.domain.post import Post
 
@@ -21,13 +22,12 @@ class IPostsRepository(ABC):
     async def get_post(self, post_id: str) -> Post | None:
         raise NotImplementedError
 
-
     @abstractmethod
     async def get_posts(
-            self,
-            last_id: str | None = None,
-            limit: int = 20,
-            sort: Literal["asc", "desc"] = "desc",
+        self,
+        last_id: str | None = None,
+        limit: int = 20,
+        sort: Literal["asc", "desc"] = "desc",
     ) -> PostsResultFromDB:
         raise NotImplementedError
 
@@ -52,11 +52,11 @@ class ICommentsRepository(ABC):
 
     @abstractmethod
     async def get_comments(
-            self,
-            post_id: str,
-            last_id: str | None = None,
-            limit: int = 10,
-            sort: Literal["asc", "desc"] = "desc",
+        self,
+        post_id: str,
+        last_id: str | None = None,
+        limit: int = 10,
+        sort: Literal["asc", "desc"] = "desc",
     ) -> CommentsResultFromDB:
         raise NotImplementedError
 
@@ -78,10 +78,25 @@ class ICommentsRepository(ABC):
 
     @abstractmethod
     async def get_answers(
-            self,
-            comment_id: str,
-            last_id: str | None = None,
-            limit: int = 10,
-            sort: Literal["asc", "desc"] = "desc",
+        self,
+        comment_id: str,
+        last_id: str | None = None,
+        limit: int = 10,
+        sort: Literal["asc", "desc"] = "desc",
     ) -> CommentsResultFromDB:
+        raise NotImplementedError
+
+
+class IUserRepository(ABC):
+
+    @abstractmethod
+    async def create(self, user: Author) -> Author:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_user(self, user_email: str) -> Author:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def update(self, user: Author) -> Author:
         raise NotImplementedError

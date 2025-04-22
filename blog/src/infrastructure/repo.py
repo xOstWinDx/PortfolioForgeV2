@@ -67,11 +67,30 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         return post
 
     async def like_post(self, post_id: str, user_id: int) -> bool:
-        pass
+        if not await self.collection.find_one({"_id": ObjectId(post_id)}):
+            raise PostNotFoundException(f"Can't like post, post not found with id: {post_id}")
+
+        res = await self.collection.update_one(
+            {"_id": ObjectId(post_id)},
+            {
+                "$addToSet": {"likes": user_id},
+                "$pull": {"dislikes": user_id},
+            },
+        )
+        return bool(res.modified_count)
 
     async def dislike_post(self, post_id: str, user_id: int) -> bool:
-        pass
+        if not await self.collection.find_one({"_id": ObjectId(post_id)}):
+            raise PostNotFoundException(f"Can't dislike post, post not found with id: {post_id}")
 
+        res = await self.collection.update_one(
+            {"_id": ObjectId(post_id)},
+            {
+                "$addToSet": {"dislikes": user_id},
+                "$pull": {"likes": user_id},
+            },
+        )
+        return bool(res.modified_count)
 
     async def delete_post(self, post_id: str) -> bool:
         pass

@@ -59,17 +59,15 @@ async def get_posts(
 ):
     return await posts_service.get_posts(last_id, limit)
 
-
 @router.post(
     path="/{post_id}/like",
 )
 async def like_post(
-    post_id,
-    user_id=Header(alias="X-User-ID"),
+    post_id: str,
+    user_id = Header(alias="X-User-ID"),
     posts_service: PostsService = Depends(get_posts_service),
 ):
     return await posts_service.like_post(post_id, user_id)
-
 
 @router.post(
     path="/{post_id}/dislike",

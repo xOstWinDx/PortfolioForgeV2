@@ -21,7 +21,8 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         return Post.from_dict(post) if post else None
 
     async def get_posts(
-        self, last_id: str | None = None,
+        self,
+        last_id: str | None = None,
         limit: int = 20,
         sort: Literal["asc", "desc"] = "desc"
     ) -> PostsResultFromDB:

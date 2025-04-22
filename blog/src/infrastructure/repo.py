@@ -112,6 +112,7 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
 
 
 class MongoCommentsRepository(ICommentsRepository, MongoMixin):
+
     async def get_comments(
         self,
         post_id: str,

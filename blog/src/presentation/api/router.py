@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, Query, Header
 from starlette import status
 
@@ -19,16 +18,19 @@ router = APIRouter(prefix="/posts")
         200: {"description": "Успешное получение поста"},
         404: {
             "description": "Пост не найден",
-            "content":
-                {"application/json":
-                     {"schema": ExceptionSchema.model_json_schema()}
-                 }
+            "content": {
+                "application/json": {"schema": ExceptionSchema.model_json_schema()}
+            },
         },
         422: {
             "description": "Ошибка валидации входных данных",
-            "content": {"application/json": {"schema": ValidationErrorSchema.model_json_schema()}}
-        }
-    }
+            "content": {
+                "application/json": {
+                    "schema": ValidationErrorSchema.model_json_schema()
+                }
+            },
+        },
+    },
 )
 async def get_post_by_id(
     post_id: str,
@@ -78,22 +80,4 @@ async def dislike_post(
     return await posts_service.dislike_post(post_id, user_id)
 
 
-
-
-
-
-
-
-
 # TODO: Комментарии workflow
-
-
-
-
-
-
-
-
-
-
-

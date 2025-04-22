@@ -17,7 +17,6 @@ class Post:
     comments_count: int
     images: list[str]
 
-
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]):
         _id = data.get("id") or data.get("_id")

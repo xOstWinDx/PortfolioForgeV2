@@ -50,7 +50,21 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
 
 
     async def create_post(self, post: Post) -> Post:
-        pass
+        res = await self.collection.insert_one(
+            {
+                "_id": post.id,
+                "title": post.title,
+                "content": post.content,
+                "author": post.author.to_dict(),
+                "dislikes": post.dislikes,
+                "likes": post.likes,
+                "created_at": post.created_at,
+                "comments_count": post.comments_count,
+                "images": post.images
+            }
+        )
+        assert res.inserted_id, "Something went wrong"
+        return post
 
     async def like_post(self, post_id: str, user_id: int) -> bool:
         pass

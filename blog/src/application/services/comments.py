@@ -62,3 +62,8 @@ class CommentsService:
         if not await self.comments_repo.get_one(comment_id):
             raise CommentNotFoundException(comment_id)
         return await self.comments_repo.like(comment_id, user_id)  # type: ignore
+
+    async def dislike(self, comment_id: str, user_id: int) -> bool:
+        if not await self.comments_repo.get_one(comment_id):
+            raise CommentNotFoundException(comment_id)
+        return await self.comments_repo.dislike(comment_id, user_id)  # type: ignore

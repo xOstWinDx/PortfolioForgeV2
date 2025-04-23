@@ -4,7 +4,7 @@ import logging
 
 from fastapi import FastAPI
 
-from src.presentation.api.router import router
+from src.presentation.http.router import router
 from src.presentation.broker.rabbit.consumer import start_consumer
 
 app = FastAPI(

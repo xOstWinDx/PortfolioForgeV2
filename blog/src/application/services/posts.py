@@ -1,36 +1,21 @@
 import asyncio
 from asyncio import TaskGroup
-from typing import NamedTuple
 
 from src.application.interfaces.repo import (
     ICommentsRepository,
     IPostsRepository,
     IUserRepository,
 )
-from src.domain.comment import Comment
+from src.application.services.results import (
+    CommentsResultFromService,
+    PostResultFromService,
+    PostsResultFromService,
+)
 from src.domain.exceptions import PostNotFoundException
 from src.domain.post import Post
 
 
-class CommentsResultFromService(NamedTuple):
-    comments: list[Comment]
-    has_next: bool
-    last_id: str
-
-
-class PostResultFromService(NamedTuple):
-    post: Post
-    recent_comments: CommentsResultFromService
-
-
-class PostsResultFromService(NamedTuple):
-    posts: list[PostResultFromService]
-    has_next: bool
-    last_id: str
-
-
 class PostsService:
-
     def __init__(
         self,
         comments_repo: ICommentsRepository,
@@ -42,30 +27,28 @@ class PostsService:
         self.user_repo = user_repo
 
     async def create_post(self, post: Post, user_email: str) -> Post:
-        author = await self.user_repo.get_user(user_email)
+        author = await self.user_repo.get_by_email(user_email)
         post.author = author
-        return await self.posts_repo.create_post(post)
+        return await self.posts_repo.create(post)
 
     async def get_post(self, post_id: str) -> PostResultFromService:
         async with TaskGroup() as tg:
-            post = tg.create_task(self.posts_repo.get_post(post_id))
-            recent_comments = tg.create_task(
-                self.comments_repo.get_comments(post_id, limit=5)
+            post = tg.create_task(self.posts_repo.get_one(post_id))
+            recent_comments_task = tg.create_task(
+                self.comments_repo.get_many(post_id, limit=5)
             )
         if not post:
             raise PostNotFoundException(post_id)
-        recent_comments = recent_comments.result()
-        recent_comments = CommentsResultFromService(
+        recent_comments = recent_comments_task.result()
+        comments = CommentsResultFromService(
             comments=recent_comments.comments,
             has_next=recent_comments.has_next,
             last_id=recent_comments.comments[-1].id,
         )
-        return PostResultFromService(
-            post=post.result(), recent_comments=recent_comments
-        )
+        return PostResultFromService(post=post.result(), recent_comments=comments)
 
     async def get_posts(self, last_id: str, limit: int = 20) -> PostsResultFromService:
-        posts, has_next = await self.posts_repo.get_posts(last_id, limit)
+        posts, has_next = await self.posts_repo.get_many(last_id, limit)
         last_id = posts.posts[-1].id
         tasks = []
         for post in posts:
@@ -79,9 +62,7 @@ class PostsService:
         )
 
     async def _load_comments(self, post: Post) -> PostResultFromService:
-        comments_has_next = await self.comments_repo.get_comments(
-            post_id=post.id, limit=5
-        )
+        comments_has_next = await self.comments_repo.get_many(post_id=post.id, limit=5)
         recent_comments = CommentsResultFromService(
             comments=comments_has_next.comments,
             has_next=comments_has_next.has_next,
@@ -90,7 +71,7 @@ class PostsService:
         return PostResultFromService(post, recent_comments=recent_comments)
 
     async def like_post(self, post_id: str, user_id: int) -> bool:
-        return await self.posts_repo.like_post(post_id, user_id)
+        return await self.posts_repo.like(post_id, user_id)  # type: ignore
 
     async def dislike_post(self, post_id: str, user_id: int) -> bool:
-        return await self.posts_repo.dislike_post(post_id, user_id)
+        return await self.posts_repo.dislike(post_id, user_id)  # type: ignore

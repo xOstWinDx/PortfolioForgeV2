@@ -17,13 +17,12 @@ class CommentsResultFromDB(NamedTuple):
 
 
 class IPostsRepository(ABC):
-
     @abstractmethod
-    async def get_post(self, post_id: str) -> Post | None:
+    async def get_one(self, post_id: str) -> Post | None:
         raise NotImplementedError
 
     @abstractmethod
-    async def get_posts(
+    async def get_many(
         self,
         last_id: str | None = None,
         limit: int = 20,
@@ -32,54 +31,40 @@ class IPostsRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def create_post(self, post: Post) -> Post:
+    async def create(self, post: Post) -> Post:
         raise NotImplementedError
 
     @abstractmethod
-    async def like_post(self, post_id: str, user_id: int) -> bool:
+    async def like(self, post_id: str, user_id: int) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    async def dislike_post(self, post_id: str, user_id: int) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def delete_post(self, post_id: str) -> bool:
+    async def dislike(self, post_id: str, user_id: int) -> bool:
         raise NotImplementedError
 
 
 class ICommentsRepository(ABC):
+    @abstractmethod
+    async def create(self, comment: Comment) -> Comment:
+        raise NotImplementedError
 
     @abstractmethod
-    async def get_comments(
+    async def get_one(self, comment_id: str) -> Comment | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def like(self, comment_id: str, user_id: int) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def dislike(self, comment_id: str, user_id: int) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_many(
         self,
         post_id: str,
-        last_id: str | None = None,
-        limit: int = 10,
-        sort: Literal["asc", "desc"] = "desc",
-    ) -> CommentsResultFromDB:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def create_comment(self, comment: Comment) -> Comment:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def like_comment(self, comment_id: str, user_id: int) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def dislike_comment(self, comment_id: str, user_id: int) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def create_answer(self, answer: Comment, comment_id: str) -> Comment:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def get_answers(
-        self,
-        comment_id: str,
+        comment_id: str | None = None,
         last_id: str | None = None,
         limit: int = 10,
         sort: Literal["asc", "desc"] = "desc",
@@ -88,13 +73,16 @@ class ICommentsRepository(ABC):
 
 
 class IUserRepository(ABC):
-
     @abstractmethod
     async def create(self, user: Author) -> Author:
         raise NotImplementedError
 
     @abstractmethod
-    async def get_user(self, user_email: str) -> Author:
+    async def get_by_email(self, user_email: str) -> Author | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_id(self, user_id: int) -> Author | None:
         raise NotImplementedError
 
     @abstractmethod

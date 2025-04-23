@@ -1,4 +1,7 @@
+from typing import Any
+
 from pydantic import BaseModel
+
 
 class ValidationErrorSchema(BaseModel):
     loc: list[str | int]  # Местоположение ошибки

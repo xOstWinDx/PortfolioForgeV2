@@ -7,7 +7,7 @@ from src.domain.author import Author
 
 @dataclass
 class Post:
-    id: str # ObjectID
+    id: str  # ObjectID
     title: str
     content: str
     author: Optional[Author]  # В момент создания поста нет полных данных автора.
@@ -18,16 +18,16 @@ class Post:
     images: list[str]
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]):
+    def from_dict(cls, data: Mapping[str, Any]) -> "Post":
         _id = data.get("id") or data.get("_id")
         return cls(
-            id=_id,
-            title=data.get("title"),
-            content=data.get("content"),
+            id=str(_id),
+            title=str(data.get("title")),
+            content=str(data.get("content")),
             author=data.get("author"),
-            dislikes=data.get("dislikes"),
-            likes=data.get("likes"),
-            created_at=data.get("created_at"),
-            comments_count=data.get("comments_count"),
-            images=data.get("images"),
+            dislikes=len(data.get("dislikes", [])),
+            likes=len(data.get("likes", [])),
+            created_at=data.get("created_at"),  # type: ignore
+            comments_count=int(data.get("comments_count", 0)),
+            images=list(data.get("images", [])),
         )

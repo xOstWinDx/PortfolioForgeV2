@@ -116,7 +116,9 @@ def merge_openapi_schemas(schemas: list[tuple[str, Dict[str, Any]]]) -> Dict[str
         # Объединяем компоненты
         if "components" in schema:
             for component_type in ["schemas", "securitySchemes"]:
-                for key, value in schema["components"].get(component_type, {}).items():
+                for key, value in (
+                    schema["components"].get_by_email(component_type, {}).items()
+                ):
                     if key not in merged_schema["components"][component_type]:
                         merged_schema["components"][component_type][key] = value
 

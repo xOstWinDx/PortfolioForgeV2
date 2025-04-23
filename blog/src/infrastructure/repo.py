@@ -8,14 +8,15 @@ from src.application.interfaces.repo import (
     PostsResultFromDB,
     ICommentsRepository,
     CommentsResultFromDB,
+    IUserRepository,
 )
+from src.domain.author import Author
 from src.domain.comment import Comment
 from src.domain.exceptions import PostNotFoundException
 from src.domain.post import Post
 
 
 class MongoMixin:
-
     def __init__(
         self, mongo_client: AsyncIOMotorClient, db_name: str, collection_name: str
     ) -> None:
@@ -25,12 +26,11 @@ class MongoMixin:
 
 
 class MongoPostRepository(IPostsRepository, MongoMixin):
-
-    async def get_post(self, post_id: str) -> Post | None:
+    async def get_one(self, post_id: str) -> Post | None:
         post = await self.collection.find_one({"_id"})
         return Post.from_dict(post) if post else None
 
-    async def get_posts(
+    async def get_many(
         self,
         last_id: str | None = None,
         limit: int = 20,
@@ -60,15 +60,15 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         has_next = len(result) > limit
         return PostsResultFromDB(posts=result[:limit], has_next=has_next)
 
-    async def create_post(self, post: Post) -> Post:
+    async def create(self, post: Post) -> Post:
         res = await self.collection.insert_one(
             {
                 "_id": post.id,
                 "title": post.title,
                 "content": post.content,
                 "author": post.author.to_dict(),
-                "dislikes": post.dislikes,
-                "likes": post.likes,
+                "dislikes": [],
+                "likes": [],
                 "created_at": post.created_at,
                 "comments_count": post.comments_count,
                 "images": post.images,
@@ -77,7 +77,7 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         assert res.inserted_id, "Something went wrong"
         return post
 
-    async def like_post(self, post_id: str, user_id: int) -> bool:
+    async def like(self, post_id: str, user_id: int) -> bool:
         if not await self.collection.find_one({"_id": ObjectId(post_id)}):
             raise PostNotFoundException(
                 f"Can't like post, post not found with id: {post_id}"
@@ -92,7 +92,7 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         )
         return bool(res.modified_count)
 
-    async def dislike_post(self, post_id: str, user_id: int) -> bool:
+    async def dislike(self, post_id: str, user_id: int) -> bool:
         if not await self.collection.find_one({"_id": ObjectId(post_id)}):
             raise PostNotFoundException(
                 f"Can't dislike post, post not found with id: {post_id}"
@@ -107,38 +107,83 @@ class MongoPostRepository(IPostsRepository, MongoMixin):
         )
         return bool(res.modified_count)
 
-    async def delete_post(self, post_id: str) -> bool:
-        pass
-
 
 class MongoCommentsRepository(ICommentsRepository, MongoMixin):
+    async def create(self, comment: Comment) -> Comment:
+        await self.collection.insert_one(
+            {
+                "_id": comment.id,
+                "text": comment.text,
+                "author": comment.author.to_dict(),
+                "post_id": comment.post_id,
+                "parent_id": comment.parent_id,
+                "dislikes": [],
+                "likes": [],
+                "answers_count": comment.answers_count,
+                "created_at": comment.created_at,
+            }
+        )
+        return comment
 
-    async def get_comments(
+    async def get_one(self, comment_id: str) -> Comment | None:
+        res = await self.collection.find_one({"_id": ObjectId(comment_id)})
+        return Comment.from_dict(res) if res else None
+
+    async def like(self, comment_id: str, user_id: int) -> bool:
+        res = await self.collection.update_one(
+            {"_id": ObjectId(comment_id)},
+            {"$addToSet": {"likes": user_id}, "$pull": {"dislikes": user_id}},
+        )
+        return bool(res.modified_count)
+
+    async def dislike(self, comment_id: str, user_id: int) -> bool:
+        res = await self.collection.update_one(
+            {"_id": ObjectId(comment_id)},
+            {"$addToSet": {"dislikes": user_id}, "$pull": {"likes": user_id}},
+        )
+        return bool(res.modified_count)
+
+    async def get_many(
         self,
         post_id: str,
+        comment_id: str | None = None,
         last_id: str | None = None,
         limit: int = 10,
         sort: Literal["asc", "desc"] = "desc",
     ) -> CommentsResultFromDB:
-        pass
+        cursor = self.collection.find(
+            {
+                "post_id": post_id,
+                **(
+                    {
+                        "_id": (
+                            {"$lt": ObjectId(last_id)}
+                            if sort == "desc"
+                            else {"$gt": ObjectId(last_id)}
+                        )
+                    }
+                    if last_id
+                    else {}
+                ),
+            }
+        ).limit(limit + 1)
+        result = [Comment.from_dict(comment) async for comment in cursor]
+        has_next = len(result) > limit
+        return CommentsResultFromDB(comments=result[:limit], has_next=has_next)
 
-    async def create_comment(self, comment: Comment) -> Comment:
-        pass
 
-    async def like_comment(self, comment_id: str, user_id: int) -> bool:
-        pass
+class MongoUserRepository(IUserRepository, MongoMixin):
+    async def get_by_id(self, user_id: int) -> Author | None:
+        return await self.collection.find_one({"_id": user_id})
 
-    async def dislike_comment(self, comment_id: str, user_id: int) -> bool:
-        pass
+    async def create(self, user: Author) -> Author:
+        await self.collection.insert_one(user.to_dict())
+        return user
 
-    async def create_answer(self, answer: Comment, comment_id: str) -> Comment:
-        pass
+    async def get_by_email(self, user_email: str) -> Author:
+        user = await self.collection.find_one({"email": user_email})
+        return Author.from_dict(user)
 
-    async def get_answers(
-        self,
-        comment_id: str,
-        last_id: str | None = None,
-        limit: int = 10,
-        sort: Literal["asc", "desc"] = "desc",
-    ) -> CommentsResultFromDB:
-        pass
+    async def update(self, user: Author) -> Author:
+        await self.collection.update_one({"_id": user.id}, {"$set": user.to_dict()})
+        return user
